@@ -1,7 +1,8 @@
 var loadtest = require('loadtest');
 var fs = require("fs");
+var keepAliveAgent = require("agentkeepalive");
 var Sounds = require("./testData/Final_Data");
-var NO_OF_REQUESTS = 10; 
+var NO_OF_REQUESTS = 20; 
 var CONCURRENCY = 1;
 var arr = Array(NO_OF_REQUESTS).fill(NO_OF_REQUESTS);
 var CALL_COUNTER = 0;
@@ -63,16 +64,18 @@ function statusCallback(latency, result, error) {
   } else {
     CALL_COUNTER++;
     console.dir(result);
-    global.ERRORS.push(error);
+    global.ERRORS.push(result);
   }
   if(result) {
     var requestElapsedTimeInSeconds = Math.round(result.requestElapsed / 1000);
     // console.log('Current Latency: %j,\nResult: %j,\nError: %j\n', latency, result, error);
-    // console.log('\nError:\n');
-    // console.dir(error.percentiles);
-    // console.dir(result);
     console.log('\nRequest #: '+(CALL_COUNTER)+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
-    global.RUN_DATA.push('Request #: '+CALL_COUNTER+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
+    global.RUN_DATA.push({
+      'Request #:' : CALL_COUNTER,
+      'Time Taken:' : requestElapsedTimeInSeconds,
+      'Req Status:' : result.statusCode,
+      'Req Path:' : result.path
+    });
     global.RUN_DATA_TIMING.push({
       "Request #": CALL_COUNTER,
       "Time Taken": requestElapsedTimeInSeconds
@@ -107,7 +110,7 @@ const initiateLoadTest = async _ => {
     // }
   }
 
-  downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.txt`, global.RUN_DATA);
+  downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.json`, global.RUN_DATA);
   if(global.ERRORS.length > 0) {
     console.log('Error Count from Status Callbacks: %j',global.ERRORS.length);
     downloadErrorLogs(`Error-${NO_OF_REQUESTS}-C-${CONCURRENCY}.json`, global.ERRORS);
@@ -123,12 +126,13 @@ function prepareRequest() {
   var options = {
     "url": url,
     "maxRequests": 1,
+    "timeout": 20000,
     "concurrency": CONCURRENCY,
-    // "requestsPerSecond": 10,
+    "requestsPerSecond": 10,
     "method": 'GET',
-    "secureProtocol": 'TLSv1_method',
-    "statusCallback": statusCallback//,
-    // "contentInspector": contentInspector
+    // "secureProtocol": 'TLSv1_method',
+    "statusCallback": statusCallback,
+    "agentKeepAlive": keepAliveAgent
   };
 
   return options;

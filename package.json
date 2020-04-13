@@ -15,6 +15,7 @@
     "request": "^2.88.2"
   },
   "dependencies": {
+    "agentkeepalive": "^4.1.0",
     "express": "^4.17.1",
     "loadtest": "^5.0.1",
     "should": "^13.2.3"
