@@ -63,7 +63,7 @@ function statusCallback(latency, result, error) {
   } else {
     CALL_COUNTER++;
     console.dir(result);
-    global.ERRORS.push({'statusCallbackError': error});
+    global.ERRORS.push(error);
   }
   if(result) {
     var requestElapsedTimeInSeconds = Math.round(result.requestElapsed / 1000);
@@ -77,12 +77,12 @@ function statusCallback(latency, result, error) {
       "Request #": CALL_COUNTER,
       "Time Taken": requestElapsedTimeInSeconds
     });
+    if(result.requestIndex+1 == NO_OF_REQUESTS) {
+      console.log(`\n Total Time Taken to Complete Last ${NO_OF_REQUESTS} requests is: ${Math.round(error.totalTimeSeconds)}s`);
+    }
   } else {
     // console.dir(error);
     console.log('Current Latency: %j,\nResult: %j,\nError: %j\n', latency, result, error);
-  }
-  if(result.requestIndex+1 == NO_OF_REQUESTS) {
-    console.log(`\n Total Time Taken to Complete Last ${NO_OF_REQUESTS} requests is: ${Math.round(error.totalTimeSeconds)}s`);
   }
   
   console.log('-----------------------------------------------------------');
@@ -110,7 +110,7 @@ const initiateLoadTest = async _ => {
   downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.txt`, global.RUN_DATA);
   if(global.ERRORS.length > 0) {
     console.log('Error Count from Status Callbacks: %j',global.ERRORS.length);
-    downloadErrorLogs(`Error-${NO_OF_REQUESTS}-C-${CONCURRENCY}.txt`, global.ERRORS);
+    downloadErrorLogs(`Error-${NO_OF_REQUESTS}-C-${CONCURRENCY}.json`, global.ERRORS);
     global.ERRORS = [];
   }
 }
@@ -124,7 +124,7 @@ function prepareRequest() {
     "url": url,
     "maxRequests": 1,
     "concurrency": CONCURRENCY,
-    "requestsPerSecond": 10,
+    // "requestsPerSecond": 10,
     "method": 'GET',
     "secureProtocol": 'TLSv1_method',
     "statusCallback": statusCallback//,
@@ -145,7 +145,7 @@ function getRamdomIndex() {
 }
 
 function downloadErrorLogs(fileName, data) {
-  fs.writeFile(fileName, data, 'utf8', function(err) {
+  fs.writeFile(fileName, JSON.stringify(data), 'utf8', function(err) {
     if(!err) {
       console.log('Error Data is Written in: '+fileName);
       return;
