@@ -1,7 +1,7 @@
 var loadtest = require('loadtest');
 var fs = require("fs");
-var Sounds = require("./testData/Final_Date");
-var NO_OF_REQUESTS = 10; // 10 * 10 = 100 
+var Sounds = require("./testData/Final_Data");
+var NO_OF_REQUESTS = 10; 
 var CONCURRENCY = 1;
 var arr = Array(NO_OF_REQUESTS).fill(NO_OF_REQUESTS);
 var CALL_COUNTER = 0;
@@ -47,7 +47,7 @@ const test = options => {
         console.error('Got an error: %s', error);
         reject('Got an error: %s', error);
       } else if (operation.running == false) {
-        resolve(`*** Last ${NO_OF_REQUESTS} Requests Completed ! ***\n`);
+        resolve(`*** ${CALL_COUNTER+1} Requests Completed ! ***\n`);
       }
     });
   });
@@ -61,6 +61,8 @@ function statusCallback(latency, result, error) {
   if(JSON.stringify(error.errorCodes) == JSON.stringify({})) {
     CALL_COUNTER++;
   } else {
+    CALL_COUNTER++;
+    console.dir(result);
     global.ERRORS.push({'statusCallbackError': error});
   }
   if(result) {
@@ -68,7 +70,7 @@ function statusCallback(latency, result, error) {
     // console.log('Current Latency: %j,\nResult: %j,\nError: %j\n', latency, result, error);
     // console.log('\nError:\n');
     // console.dir(error.percentiles);
-    console.dir(result);
+    // console.dir(result);
     console.log('\nRequest #: '+(CALL_COUNTER)+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
     global.RUN_DATA.push('Request #: '+CALL_COUNTER+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
     global.RUN_DATA_TIMING.push({
@@ -107,15 +109,16 @@ const initiateLoadTest = async _ => {
 
   downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.txt`, global.RUN_DATA);
   if(global.ERRORS.length > 0) {
-    console.log('Errors from Status Callbacks: %s',global.ERRORS);
+    console.log('Error Count from Status Callbacks: %j',global.ERRORS.length);
+    downloadErrorLogs(`Error-${NO_OF_REQUESTS}-C-${CONCURRENCY}.txt`, global.ERRORS);
     global.ERRORS = [];
   }
 }
 
 function prepareRequest() {
   var soundRequestString = getRamdomIndex();
-  var url = 'http://localhost:7777/omni-content/concat-sound?'+soundRequestString;
-  // var url = 'https://staging-node.splashmath.com/omni-content/concat-sound?'+soundRequestString;
+  // var url = 'http://localhost:7777/omni-content/concat-sound?'+soundRequestString;
+  var url = 'https://staging-node.splashmath.com/omni-content/concat-sound?'+soundRequestString;
 
   var options = {
     "url": url,
@@ -139,6 +142,17 @@ function getRamdomIndex() {
   } else {
     return getRamdomIndex();
   }
+}
+
+function downloadErrorLogs(fileName, data) {
+  fs.writeFile(fileName, data, 'utf8', function(err) {
+    if(!err) {
+      console.log('Error Data is Written in: '+fileName);
+      return;
+    } else {
+      console.log('Error while writting to: '+fileName);
+    }
+  })
 }
 
 initiateLoadTest();
