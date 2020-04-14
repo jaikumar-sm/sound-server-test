@@ -3,7 +3,7 @@ var fs = require("fs");
 var keepAliveAgent = require("agentkeepalive");
 var Sounds = require("./testData/Final_Data");
 var NO_OF_REQUESTS = 20; 
-var CONCURRENCY = 1;
+var CONCURRENCY = 10;
 var arr = Array(NO_OF_REQUESTS).fill(NO_OF_REQUESTS);
 var CALL_COUNTER = 0;
 
@@ -15,9 +15,8 @@ global.ERRORS = [];
 var PTSoundRequests = Sounds.sounds;
 
 function downloadTestLogs(fileName, data) {
-  // console.log(`\nWritting Data to file: ${fileName}`);
   var averageTimeTaken = getAverageTimeOfEachRequest(global.RUN_DATA_TIMING);
-  fs.writeFile(fileName, data, 'utf8', function(err) {
+  fs.writeFile(fileName, JSON.stringify(data), 'utf8', function(err) {
     if(!err) {
       console.log('Test Data Written in: '+fileName);
       console.log(`\nTotal Requests Made: ${CALL_COUNTER}\nAverage time taken by each requests is: ${averageTimeTaken}s\n`);
@@ -58,12 +57,13 @@ const startTest = (options, i) => {
   return test(options).then(v => console.log(v));
 }
 
-function statusCallback(latency, result, error) {
-  if(JSON.stringify(error.errorCodes) == JSON.stringify({})) {
+function statusCallback(error, result, latency) {
+  if(!error) {
     CALL_COUNTER++;
+    // console.dir(result);
   } else {
     CALL_COUNTER++;
-    console.dir(result);
+    console.dir(error);
     global.ERRORS.push(result);
   }
   if(result) {
@@ -72,7 +72,7 @@ function statusCallback(latency, result, error) {
     console.log('\nRequest #: '+(CALL_COUNTER)+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
     global.RUN_DATA.push({
       'Request #:' : CALL_COUNTER,
-      'Time Taken:' : requestElapsedTimeInSeconds,
+      'Time Taken:' : requestElapsedTimeInSeconds+'s',
       'Req Status:' : result.statusCode,
       'Req Path:' : result.path
     });
@@ -81,33 +81,20 @@ function statusCallback(latency, result, error) {
       "Time Taken": requestElapsedTimeInSeconds
     });
     if(result.requestIndex+1 == NO_OF_REQUESTS) {
-      console.log(`\n Total Time Taken to Complete Last ${NO_OF_REQUESTS} requests is: ${Math.round(error.totalTimeSeconds)}s`);
+      console.log(`\n Total Time Taken to Complete Last ${NO_OF_REQUESTS} requests is: ${Math.round(latency.totalTimeSeconds)}s`);
     }
   } else {
-    // console.dir(error);
     console.log('Current Latency: %j,\nResult: %j,\nError: %j\n', latency, result, error);
   }
   
   console.log('-----------------------------------------------------------');
 }
 
-function contentInspector(result) {
-  if (result.statusCode == 200) {
-    const body = JSON.parse(result.body)
-    // how to examine the body depends on the content that the service returns
-    if (body) {
-      // console.log('result: %j',result);
-    }
-  }
-}
-
 const initiateLoadTest = async _ => {
   console.time('Script ran in');
   for(let i=0; i<arr.length; i++) {
-    // for(let j=0;j<arr.length; j++) {
       var options = prepareRequest();
       await startTest(options, i);
-    // }
   }
 
   downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.json`, global.RUN_DATA);
@@ -128,9 +115,7 @@ function prepareRequest() {
     "maxRequests": 1,
     "timeout": 20000,
     "concurrency": CONCURRENCY,
-    "requestsPerSecond": 10,
     "method": 'GET',
-    // "secureProtocol": 'TLSv1_method',
     "statusCallback": statusCallback,
     "agentKeepAlive": keepAliveAgent
   };
