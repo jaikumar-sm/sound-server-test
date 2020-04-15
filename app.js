@@ -2,10 +2,11 @@ var loadtest = require('loadtest');
 var fs = require("fs");
 var keepAliveAgent = require("agentkeepalive");
 var Sounds = require("./testData/Final_Data");
-var NO_OF_REQUESTS = 20; 
-var CONCURRENCY = 10;
+var NO_OF_REQUESTS =  50;
+var CONCURRENCY = 1;
 var arr = Array(NO_OF_REQUESTS).fill(NO_OF_REQUESTS);
 var CALL_COUNTER = 0;
+var DELAY_MS = 10000;
 
 global.RUN_DATA = [];
 global.RUN_DATA_TIMING = [];
@@ -14,7 +15,7 @@ global.ERRORS = [];
 
 var PTSoundRequests = Sounds.sounds;
 
-function downloadTestLogs(fileName, data) {
+const downloadTestLogs = (fileName, data) => {
   var averageTimeTaken = getAverageTimeOfEachRequest(global.RUN_DATA_TIMING);
   fs.writeFile(fileName, JSON.stringify(data), 'utf8', function(err) {
     if(!err) {
@@ -31,7 +32,7 @@ function downloadTestLogs(fileName, data) {
   })
 }
 
-function getAverageTimeOfEachRequest(data) {
+const getAverageTimeOfEachRequest = (data) => {
   var initialValue = 0
   var sum = data.reduce((accumulator, currentValue) => accumulator + currentValue["Time Taken"], initialValue);
   var avgTime = sum/CALL_COUNTER;
@@ -53,11 +54,11 @@ const test = options => {
   });
 }
 
-const startTest = (options, i) => {
+const startTest = (options) => {
   return test(options).then(v => console.log(v));
 }
 
-function statusCallback(error, result, latency) {
+const statusCallback = (error, result, latency) => {
   if(!error) {
     CALL_COUNTER++;
     // console.dir(result);
@@ -69,6 +70,7 @@ function statusCallback(error, result, latency) {
   if(result) {
     var requestElapsedTimeInSeconds = Math.round(result.requestElapsed / 1000);
     // console.log('Current Latency: %j,\nResult: %j,\nError: %j\n', latency, result, error);
+    // console.log('\nResult: %j', result);
     console.log('\nRequest #: '+(CALL_COUNTER)+', Time Taken: '+requestElapsedTimeInSeconds+'s, Req Status: '+result.statusCode+', Req Path: '+result.path);
     global.RUN_DATA.push({
       'Request #:' : CALL_COUNTER,
@@ -93,8 +95,9 @@ function statusCallback(error, result, latency) {
 const initiateLoadTest = async _ => {
   console.time('Script ran in');
   for(let i=0; i<arr.length; i++) {
-      var options = prepareRequest();
-      await startTest(options, i);
+    var options = prepareRequest();
+    await sleep(DELAY_MS);
+    await startTest(options, i);
   }
 
   downloadTestLogs(`T-${NO_OF_REQUESTS}-C-${CONCURRENCY}.json`, global.RUN_DATA);
@@ -105,25 +108,26 @@ const initiateLoadTest = async _ => {
   }
 }
 
-function prepareRequest() {
+const prepareRequest = () => {
   var soundRequestString = getRamdomIndex();
   // var url = 'http://localhost:7777/omni-content/concat-sound?'+soundRequestString;
   var url = 'https://staging-node.splashmath.com/omni-content/concat-sound?'+soundRequestString;
 
   var options = {
-    "url": url,
-    "maxRequests": 1,
-    "timeout": 20000,
-    "concurrency": CONCURRENCY,
-    "method": 'GET',
-    "statusCallback": statusCallback,
-    "agentKeepAlive": keepAliveAgent
+    url: url,
+    maxRequests: 1,
+    timeout: 20000,
+    concurrency: CONCURRENCY,
+    method: 'GET',
+    statusCallback: statusCallback,
+    agentKeepAlive: keepAliveAgent,
+    delay: 10
   };
 
   return options;
 }
 
-function getRamdomIndex() {
+const getRamdomIndex = () => {
   var i = Math.floor(Math.random() * PTSoundRequests.length);
   if(global.PREV_CALLS.indexOf(i) == -1) {
     global.PREV_CALLS.push(i);
@@ -133,7 +137,7 @@ function getRamdomIndex() {
   }
 }
 
-function downloadErrorLogs(fileName, data) {
+const downloadErrorLogs = (fileName, data) => {
   fs.writeFile(fileName, JSON.stringify(data), 'utf8', function(err) {
     if(!err) {
       console.log('Error Data is Written in: '+fileName);
@@ -144,4 +148,18 @@ function downloadErrorLogs(fileName, data) {
   })
 }
 
-initiateLoadTest();
+const sleep = async millis => {
+  return new Promise(resolve => setTimeout(resolve, millis));
+}
+
+const run = async _ => {
+  try {
+    await initiateLoadTest();
+  } catch (e) {
+    console.error("Caught exception ==> "+e);
+  } finally {
+    console.log('We do cleanup here');
+  }
+}
+
+run();
